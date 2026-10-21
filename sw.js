@@ -1,5 +1,5 @@
 // Bajo el Casco — funciona sin señal una vez abierta (útil en los tramos)
-const V = 'bec-v5';
+const V = 'bec-v6';
 const FILES = ['./', 'index.html', 'app.js', 'logo.png', 'topo.svg', 'manifest.webmanifest',
   'icon-180.png', 'icon-192.png', 'icon-512.png',
   'fonts/bc-500.woff2', 'fonts/bc-600.woff2', 'fonts/bc-700.woff2', 'fonts/bc-800.woff2', 'fonts/bc-700i.woff2', 'fonts/bc-800i.woff2', 'fonts/bc-900i.woff2', 'ra.png'];

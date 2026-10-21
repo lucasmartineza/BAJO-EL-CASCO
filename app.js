@@ -59,6 +59,7 @@ const S = {
   last: null, urls: [],
 };
 const FADE = 0.45;
+const MOBILE = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || /Android|iPhone|iPad/i.test(navigator.userAgent);
 
 /* ---------- utilidades ---------- */
 function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
@@ -171,12 +172,16 @@ function buildOverlay(q) {
   const tabH = 28 * k;
   skewBox(c, left, py - tabH, tw + 28 * k, tabH, CEL);
   c.fillStyle = NAVY; spaced(c, kicker, left + 14 * k, py - 9 * k, sp);
-  return O;
+  // recortamos solo las franjas con gráfica: el centro queda libre y no se dibuja en cada cuadro
+  const topH = Math.ceil(130 * k);
+  const botY = Math.floor(Math.min(H - 260 * k, py - tabH - 6 * k));
+  const band = (y, h) => { const b = makeCanvas(W, h); b.getContext('2d').drawImage(O, 0, y, W, h, 0, 0, W, h); return { c: b, y }; };
+  return [band(0, topH), band(botY, H - botY)];
 }
 function drawFrame() {
-  const ctx = $('stage').getContext('2d'), W = S.W, H = S.H, v = S.video;
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-  if (v && v.videoWidth) {
+  const ctx = S.ctx, W = S.W, H = S.H, v = S.video;
+  if (!v || !v.videoWidth) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
+  else {
     const vr = v.videoWidth / v.videoHeight, cr = W / H; let sw, sh, sx, sy;
     if (vr > cr) { sh = v.videoHeight; sw = sh * cr; sx = (v.videoWidth - sw) / 2; sy = 0; }
     else { sw = v.videoWidth; sh = sw / cr; sx = 0; sy = (v.videoHeight - sh) / 2; }
@@ -185,14 +190,21 @@ function drawFrame() {
   const now = performance.now(), t = (now - S.t0) / 1000;
   if (S.ov) {
     const k = S.ovPrev ? Math.min(1, (now - S.swapAt) / 1000 / FADE) : 1;
-    if (S.ovPrev && k < 1) { ctx.globalAlpha = 1 - k; ctx.drawImage(S.ovPrev, 0, 0); }
+    if (S.ovPrev && k < 1) { ctx.globalAlpha = 1 - k; S.ovPrev.forEach(b => ctx.drawImage(b.c, 0, b.y)); }
     else S.ovPrev = null;
-    ctx.globalAlpha = k; ctx.drawImage(S.ov, 0, 0); ctx.globalAlpha = 1;
+    ctx.globalAlpha = k; S.ov.forEach(b => ctx.drawImage(b.c, 0, b.y)); ctx.globalAlpha = 1;
   }
   // el reloj NO se graba: se muestra solo en pantalla (HTML)
-  if (S.timerEl) S.timerEl.textContent = fmt(t);
+  const sec = Math.floor(t);
+  if (S.timerEl && sec !== S.lastSec) { S.lastSec = sec; S.timerEl.textContent = fmt(t); }
 }
-function loop() { if (!S.running) return; drawFrame(); S.raf = requestAnimationFrame(loop); }
+// 30 cuadros por segundo alcanzan (la cámara entrega 30): no dibujamos de más
+let lastDraw = 0;
+function loop(now) {
+  if (!S.running) return;
+  if (!now || now - lastDraw >= 31) { lastDraw = now || performance.now(); drawFrame(); }
+  S.raf = requestAnimationFrame(loop);
+}
 
 /* ---------- cámara ---------- */
 async function openCamera() {
@@ -200,7 +212,7 @@ async function openCamera() {
   if (!window.isSecureContext) throw Object.assign(new Error('https'), { code: 'https' });
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('nomedia'), { code: 'nomedia' });
   const res = S.W >= 1080 ? { width: { ideal: 1920 }, height: { ideal: 1080 } } : { width: { ideal: 1280 }, height: { ideal: 720 } };
-  const video = Object.assign({ facingMode: 'user', frameRate: { ideal: 30 } }, res);
+  const video = Object.assign({ facingMode: 'user', frameRate: { ideal: 30, max: 30 } }, res);
   try {
     S.cam = await navigator.mediaDevices.getUserMedia({ video, audio: { echoCancellation: true, noiseSuppression: true } });
   } catch (e) {
@@ -209,7 +221,12 @@ async function openCamera() {
       catch (e2) { throw Object.assign(new Error('denied'), { code: 'denied' }); }
     } else throw Object.assign(new Error(e && e.name || 'cam'), { code: 'cam' });
   }
-  if (!S.video) { S.video = document.createElement('video'); S.video.muted = true; S.video.playsInline = true; S.video.setAttribute('playsinline', ''); }
+  if (!S.video) {
+    S.video = document.createElement('video'); S.video.muted = true; S.video.playsInline = true; S.video.setAttribute('playsinline', '');
+    // en iPhone el video tiene que estar en la página para que entregue cuadros con fluidez
+    S.video.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none';
+    document.body.appendChild(S.video);
+  }
   S.video.srcObject = S.cam;
   await S.video.play().catch(() => {});
   await new Promise(r => { if (S.video.videoWidth) r(); else S.video.onloadedmetadata = () => r(); setTimeout(r, 2500); });
@@ -403,15 +420,21 @@ function fail(e) {
 function readSettings() {
   S.W = $('optRes').value === '720' ? 720 : 1080; S.H = Math.round(S.W * 16 / 9);
   const cv = $('stage'); if (cv.width !== S.W) { cv.width = S.W; cv.height = S.H; }
-  store.set('opts', { clean: $('optClean').checked, res: $('optRes').value, max: $('optMax').value });
+  store.set('opts2', { clean: $('optClean').checked, res: $('optRes').value, max: $('optMax').value });
 }
 function loadSettings() {
-  const o = store.get('opts', null); if (!o) return;
-  $('optClean').checked = !!o.clean; $('optRes').value = o.res || '1080'; $('optMax').value = o.max || '0';
+  const o = store.get('opts2', null);
+  if (!o) { // valores por defecto según el equipo
+    $('optRes').value = MOBILE ? '720' : '1080';
+    $('optClean').checked = !MOBILE;
+    return;
+  }
+  $('optClean').checked = !!o.clean; $('optRes').value = o.res || (MOBILE ? '720' : '1080'); $('optMax').value = o.max || '0';
 }
 
 /* ---------- arranque ---------- */
 function init() {
+  S.ctx = $('stage').getContext('2d', { alpha: false });
   S.timerEl = $('timer');
   loadSettings(); updateRemaining(); refreshCount();
   const img = new Image(); img.onload = () => { S.logo = img; }; img.src = 'logo.png';
