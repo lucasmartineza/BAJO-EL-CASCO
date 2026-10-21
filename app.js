@@ -145,7 +145,6 @@ function buildOverlay(q) {
     c.save(); c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = 8 * k; c.shadowOffsetY = 2 * k;
     c.drawImage(S.ra, 18 * k, 22 * k, w, h); c.restore();
   }
-  if (S.logo) { const w = 56 * k; c.drawImage(S.logo, W - 18 * k - w, 20 * k, w, w * S.logo.height / S.logo.width); }
 
   // zócalo, de abajo hacia arriba
   const left = 18 * k, padX = 18 * k, padY = 13 * k;
