@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#060606">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bajo el Casco">
+<title>Bajo el Casco</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preload" href="fonts/bc-700.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:BC;src:url(fonts/bc-500.woff2) format("woff2");font-weight:500;font-display:block}
+@font-face{font-family:BC;src:url(fonts/bc-600.woff2) format("woff2");font-weight:600;font-display:block}
+@font-face{font-family:BC;src:url(fonts/bc-700.woff2) format("woff2");font-weight:700;font-display:block}
+@font-face{font-family:BC;src:url(fonts/bc-800.woff2) format("woff2");font-weight:800;font-display:block}
+@font-face{font-family:LoraI;src:url(fonts/lora-italic.woff2) format("woff2");font-display:swap}
+:root{--bg:#060606;--ink:#f2f0ec;--mute:#9a9893;--line:#2a2a28;--blue:#4d8cbb;--blue-l:#8cbde3;--rec:#ff4d4f;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.screen{position:fixed;inset:0;display:none;flex-direction:column}
+.screen.on{display:flex}
+.kick{font-family:BC,sans-serif;font-weight:600;font-size:13px;letter-spacing:.26em;text-transform:uppercase}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;padding:0 22px;border-radius:30px;font-family:BC,sans-serif;font-weight:700;font-size:19px;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.btn.pri{background:var(--ink);color:var(--bg)}
+.btn.sec{border:1px solid rgba(242,240,236,.5);color:var(--ink);background:rgba(6,6,6,.4)}
+.btn:active{transform:scale(.98)}
+.btn[disabled]{opacity:.45}
+.link{font-family:BC,sans-serif;font-weight:600;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue-l);min-height:44px;display:flex;align-items:center;gap:8px}
+.link.m{color:var(--mute)}
+
+/* bienvenida */
+#welcome .topo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.5;pointer-events:none}
+#welcome .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,6,6,.1) 0%,rgba(6,6,6,.55) 38%,#060606 66%);pointer-events:none}
+#welcome .wrap{position:relative;flex:1;display:flex;flex-direction:column;padding:calc(var(--st) + 24px) 24px calc(var(--sb) + 14px);max-width:520px;width:100%;margin:0 auto;overflow-y:auto}
+#welcome .top{display:flex;justify-content:space-between;align-items:center;color:#6fa8d6}
+#welcome .top span:last-child{color:var(--mute)}
+#welcome .brand{display:flex;flex-direction:column;align-items:center;gap:18px;padding:5vh 0 3vh}
+#welcome .brand img{width:min(52vw,210px);height:auto}
+#welcome .tag{font-family:LoraI,Georgia,serif;font-size:19px;line-height:1.42;text-align:center;max-width:310px}
+.concept{font-size:15px;line-height:1.6;color:#cfcdc8;text-align:center;max-width:360px;margin:0 auto}
+.concept b{color:var(--ink);font-weight:600}
+.steps{list-style:none;margin:22px 0 4px;border-top:1px solid var(--line)}
+.steps li{display:flex;gap:14px;align-items:baseline;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px;line-height:1.45;color:#cfcdc8}
+.steps li b{font-family:BC,sans-serif;font-weight:700;font-size:18px;color:var(--blue-l);min-width:20px}
+#welcome .bot{margin-top:auto;padding-top:20px;display:flex;flex-direction:column;gap:6px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+#settings{border:1px solid var(--line);border-radius:14px;padding:4px 16px;background:rgba(10,10,10,.95);margin-top:6px}
+#settings label,#settings .srow{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:50px;font-size:14px;color:#cfcdc8}
+#settings > * + *{border-top:1px solid var(--line)}
+#settings select{background:#141413;color:var(--ink);border:1px solid #33332f;border-radius:8px;padding:8px 10px;font-size:14px}
+#settings input[type=checkbox]{width:22px;height:22px;accent-color:var(--blue)}
+
+/* grabación */
+#rec{background:#000}
+#stage{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+#rec .controls{position:absolute;left:0;right:0;bottom:0;padding:0 14px calc(var(--sb) + 12px);display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:520px;margin:0 auto}
+#rec .btn{min-height:54px;font-size:17px;padding:0 12px}
+#rec .rectime{position:absolute;top:calc(var(--st) + 14px);right:16px;display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:20px;background:rgba(6,6,6,.6);font-family:BC,sans-serif;font-weight:600;font-size:16px;letter-spacing:.1em}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--rec);animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+#finishBtn .sq{width:14px;height:14px;border-radius:3px;background:var(--rec)}
+
+/* guardado */
+#done .wrap,#lib .wrap{flex:1;display:flex;flex-direction:column;gap:14px;padding:calc(var(--st) + 22px) 22px calc(var(--sb) + 16px);max-width:520px;width:100%;margin:0 auto;min-height:0}
+h1{font-family:BC,sans-serif;font-weight:700;font-size:32px;line-height:1.05;letter-spacing:.02em}
+#playback{flex:1;min-height:0;width:100%;object-fit:contain;background:#000;border-radius:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.status{font-size:13px;color:var(--mute);text-align:center;min-height:18px;line-height:1.45}
+.status.ok{color:#9fd3a6}
+
+/* mis videos */
+#libList{flex:1;overflow-y:auto;list-style:none;border-top:1px solid var(--line)}
+#libList li{padding:14px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+#libList .meta{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--mute)}
+#libList .qs{font-family:BC,sans-serif;font-weight:600;font-size:18px;color:var(--ink);letter-spacing:.03em}
+#libList .acts{display:flex;gap:8px;flex-wrap:wrap}
+#libList .acts button{min-height:40px;padding:0 14px;border-radius:20px;border:1px solid #3a3a36;font-family:BC,sans-serif;font-weight:600;font-size:14px;letter-spacing:.1em;text-transform:uppercase}
+#libList .acts .del{color:#ff8a8c;border-color:#5a2a2b}
+.empty{color:var(--mute);font-size:14px;padding:30px 0;text-align:center}
+
+#msg{align-items:center;justify-content:center;text-align:center;padding:32px;gap:18px}
+#msg h2{font-family:BC,sans-serif;font-weight:700;font-size:30px;letter-spacing:.04em}
+#msg p{color:#cfcdc8;line-height:1.55;max-width:340px;font-size:15px}
+#rotate{position:fixed;inset:0;z-index:9;background:var(--bg);display:none;align-items:center;justify-content:center;font-family:BC,sans-serif;font-size:22px;letter-spacing:.1em;text-transform:uppercase;padding:24px;text-align:center}
+@media (orientation:landscape) and (max-height:520px){#rotate{display:flex}}
+</style>
+</head>
+<body>
+
+<!-- 1. BIENVENIDA -->
+<section id="welcome" class="screen on" aria-label="Bienvenida">
+  <img class="topo" src="topo.svg" alt="">
+  <div class="shade"></div>
+  <div class="wrap">
+    <div class="top kick"><span>Rally Argentino</span><span>Autoentrevistas</span></div>
+    <div class="brand">
+      <img src="logo.png" alt="Bajo el Casco">
+      <p class="tag">Detrás de cada casco hay una historia que todavía no conocemos.</p>
+    </div>
+    <p class="concept">Un espacio íntimo para conocer a la <b>persona detrás del piloto</b>. Sin entrevistador y sin respuestas preparadas: solo vos, tus recuerdos y la libertad de contar.</p>
+    <ol class="steps">
+      <li><b>1</b><span>Tocá <b>Comenzar</b>: la cámara se enciende y empieza a grabar.</span></li>
+      <li><b>2</b><span>Leé la pregunta en voz alta y respondé mirando al lente, a tu ritmo.</span></li>
+      <li><b>3</b><span>¿Querés otra? <b>Preguntar de nuevo</b>. Cuando termines, <b>Terminar</b>.</span></li>
+    </ol>
+    <div class="bot">
+      <button class="btn pri" id="startBtn">Comenzar</button>
+      <div class="row">
+        <button class="link m" id="settingsBtn" aria-expanded="false">Ajustes</button>
+        <button class="link" id="libBtn">Mis videos <span id="libCount"></span></button>
+      </div>
+      <div id="settings" hidden>
+        <label>Guardar también versión limpia<input type="checkbox" id="optClean" checked></label>
+        <label>Calidad
+          <select id="optRes"><option value="1080">1080 × 1920</option><option value="720">720 × 1280</option></select></label>
+        <label>Duración máxima
+          <select id="optMax"><option value="0">Sin límite</option><option value="180">3 minutos</option><option value="300">5 minutos</option><option value="600">10 minutos</option></select></label>
+        <div class="srow"><span id="remaining">25 preguntas disponibles</span><button class="link" id="resetBtn">Reiniciar mazo</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. GRABACIÓN -->
+<section id="rec" class="screen" aria-label="Grabando">
+  <canvas id="stage" width="1080" height="1920"></canvas>
+  <div class="rectime" aria-hidden="true"><span class="dot"></span><span id="timer">00:00</span></div>
+  <div class="controls">
+    <button class="btn sec" id="reaskBtn">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg>
+      Preguntar de nuevo</button>
+    <button class="btn pri" id="finishBtn"><span class="sq"></span>Terminar</button>
+  </div>
+</section>
+
+<!-- 3. GUARDADO -->
+<section id="done" class="screen" aria-label="Participación guardada">
+  <div class="wrap">
+    <div>
+      <div class="kick" style="color:#6fa8d6">Participación guardada</div>
+      <h1>Tu historia ya quedó grabada</h1>
+    </div>
+    <video id="playback" playsinline controls></video>
+    <p class="status" id="doneStatus"></p>
+    <div class="grid2" id="doneActs">
+      <button class="btn pri" id="exportBtn">A la galería</button>
+      <button class="btn sec" id="exportCleanBtn">Versión limpia</button>
+    </div>
+    <div class="row">
+      <button class="link m" id="toLibBtn">Mis videos</button>
+      <button class="link" id="againBtn">Nueva participación →</button>
+    </div>
+  </div>
+</section>
+
+<!-- 4. MIS VIDEOS -->
+<section id="lib" class="screen" aria-label="Mis videos">
+  <div class="wrap">
+    <div class="row">
+      <h1>Mis videos</h1>
+      <button class="link" id="libBack">← Volver</button>
+    </div>
+    <p class="status" id="libStatus">Guardados en este dispositivo.</p>
+    <ul id="libList"></ul>
+  </div>
+</section>
+
+<section id="msg" class="screen" aria-live="polite">
+  <img src="logo.png" alt="" style="width:150px">
+  <h2 id="msgTitle"></h2>
+  <p id="msgText"></p>
+  <button class="btn sec" id="msgBtn">Volver</button>
+</section>
+
+<div id="rotate">Girá el celular a vertical</div>
+<script src="app.js"></script>
+</body>
+</html>
