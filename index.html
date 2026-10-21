@@ -68,6 +68,9 @@ h1{font-family:BC,sans-serif;font-style:italic;font-weight:900;font-size:36px;li
 @keyframes blink{50%{opacity:.25}}
 #rec .controls{position:absolute;left:0;right:0;bottom:0;padding:0 20px calc(var(--sb) + 12px);display:grid;grid-template-columns:1.25fr 1fr;gap:16px;max-width:520px;margin:0 auto}
 #rec .btn{min-height:54px;font-size:17px;padding:0 10px}
+#rec .closeBtn{position:absolute;top:calc(var(--st) + 8px);left:10px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;background:rgba(11,31,51,.6);border-radius:50%;z-index:3}
+#readyPill{font-weight:600;font-size:14px;letter-spacing:.08em;text-transform:uppercase}
+#recBtn .rdot{width:12px;height:12px;border-radius:50%;background:var(--rec)}
 #finishBtn .sq{width:13px;height:13px;background:var(--rec)}
 
 /* guardado y mis videos */
@@ -104,12 +107,13 @@ h1{font-family:BC,sans-serif;font-style:italic;font-weight:900;font-size:36px;li
     <div class="hero"><img src="logo.png" alt="Bajo el Casco"></div>
     <p class="tag">Una pregunta, una cámara y una historia fuera de los cronómetros.</p>
     <div class="bot">
-      <button class="btn cel" id="startBtn">Comenzar ▸</button>
+      <button class="btn cel" id="startBtn">Ver mi pregunta ▸</button>
       <div class="row">
         <button class="link m" id="settingsBtn" aria-expanded="false">Ajustes</button>
         <button class="link" id="libBtn">Mis videos <span id="libCount"></span></button>
       </div>
       <div id="settings" hidden>
+        <label>Guardar en el teléfono al terminar<input type="checkbox" id="optAuto" checked></label>
         <label>Guardar también versión limpia<input type="checkbox" id="optClean" checked></label>
         <label>Calidad
           <select id="optRes"><option value="720">720 × 1280 (fluida)</option><option value="1080">1080 × 1920 (máxima)</option></select></label>
@@ -124,12 +128,15 @@ h1{font-family:BC,sans-serif;font-style:italic;font-weight:900;font-size:36px;li
 <!-- 2. GRABACIÓN (lo que se ve en el canvas es lo que se graba; reloj y botones no) -->
 <section id="rec" class="screen" aria-label="Grabando">
   <canvas id="stage" width="1080" height="1920"></canvas>
-  <div class="rectime" aria-hidden="true"><span class="dot"></span><span id="timer">00:00</span></div>
+  <button class="closeBtn" id="cancelBtn" aria-label="Volver al inicio">✕</button>
+  <div class="rectime" id="readyPill">Leé la pregunta y tocá Comenzar</div>
+  <div class="rectime" id="recPill" hidden aria-hidden="true"><span class="dot"></span><span id="timer">00:00</span></div>
   <div class="controls">
     <button class="btn ghost" id="reaskBtn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg>
-      Preguntar de nuevo</button>
-    <button class="btn white" id="finishBtn"><span class="sq"></span>Terminar</button>
+      <span id="reaskLabel">Otra pregunta</span></button>
+    <button class="btn cel" id="recBtn"><span class="rdot"></span>Comenzar</button>
+    <button class="btn white" id="finishBtn" hidden><span class="sq"></span>Terminar</button>
   </div>
 </section>
 

@@ -187,7 +187,7 @@ function drawFrame() {
     else { sw = v.videoWidth; sh = sw / cr; sx = 0; sy = (v.videoHeight - sh) / 2; }
     ctx.drawImage(v, sx, sy, sw, sh, 0, 0, W, H); // sin espejar: los sponsors del buzo se leen derecho
   }
-  const now = performance.now(), t = (now - S.t0) / 1000;
+  const now = performance.now(), t = S.mode === 'rec' ? (now - S.t0) / 1000 : 0;
   if (S.ov) {
     const k = S.ovPrev ? Math.min(1, (now - S.swapAt) / 1000 / FADE) : 1;
     if (S.ovPrev && k < 1) { ctx.globalAlpha = 1 - k; S.ovPrev.forEach(b => ctx.drawImage(b.c, 0, b.y)); }
@@ -196,7 +196,7 @@ function drawFrame() {
   }
   // el reloj NO se graba: se muestra solo en pantalla (HTML)
   const sec = Math.floor(t);
-  if (S.timerEl && sec !== S.lastSec) { S.lastSec = sec; S.timerEl.textContent = fmt(t); }
+  if (S.mode === 'rec' && S.timerEl && sec !== S.lastSec) { S.lastSec = sec; S.timerEl.textContent = fmt(t); }
 }
 // 30 cuadros por segundo alcanzan (la cámara entrega 30): no dibujamos de más
 let lastDraw = 0;
@@ -251,6 +251,13 @@ function startRecorder(stream, kind, mime) {
   return { rec, kind, done };
 }
 let busy = false;
+// paso 1: se enciende la cámara y aparece la pregunta, SIN grabar todavía
+function setMode(m) {
+  S.mode = m; const rec = m === 'rec';
+  $('readyPill').hidden = rec; $('recPill').hidden = !rec;
+  $('recBtn').hidden = rec; $('finishBtn').hidden = !rec; $('cancelBtn').hidden = rec;
+  $('reaskLabel').textContent = rec ? 'Preguntar de nuevo' : 'Otra pregunta';
+}
 async function start() {
   if (busy) return; busy = true;
   try {
@@ -258,10 +265,19 @@ async function start() {
     await openCamera(); keepAwake();
     S.q = drawQuestion();
     S.ov = buildOverlay(S.q); S.ovPrev = null;
-    S.log = [{ n: S.q.n, t: 0 }];
+    setMode('ready');
     show('rec');
-    S.t0 = performance.now();
     S.running = true; loop();
+  } catch (e) { fail(e); }
+  busy = false;
+}
+// paso 2: el piloto ya leyó la pregunta y toca Comenzar -> empieza la grabación
+async function record() {
+  if (busy || S.mode !== 'ready') return; busy = true;
+  try {
+    S.log = [{ n: S.q.n, t: 0 }];
+    S.t0 = performance.now(); S.lastSec = -1;
+    setMode('rec');
     const cv = $('stage');
     if (!cv.captureStream) throw Object.assign(new Error('capture'), { code: 'nomedia' });
     const comp = cv.captureStream(30);
@@ -280,7 +296,11 @@ function reask() {
   if (!S.running || !S.q) return;
   const q = drawQuestion(S.q.n);
   S.ovPrev = S.ov; S.ov = buildOverlay(q); S.swapAt = performance.now(); S.q = q;
-  S.log.push({ n: q.n, t: (performance.now() - S.t0) / 1000 });
+  if (S.mode === 'rec') S.log.push({ n: q.n, t: (performance.now() - S.t0) / 1000 });
+}
+function cancel() {
+  if (S.mode !== 'ready') return;
+  S.running = false; cancelAnimationFrame(S.raf); closeCamera(); show('welcome');
 }
 async function finish() {
   if (busy || !S.recs.length) return; busy = true;
@@ -289,16 +309,45 @@ async function finish() {
   const recs = S.recs; S.recs = [];
   recs.forEach(r => { try { if (r.rec.state !== 'inactive') r.rec.stop(); } catch (e) {} });
   const out = {}; for (const r of recs) out[r.kind] = await r.done;
-  S.running = false; cancelAnimationFrame(S.raf);
+  S.running = false; cancelAnimationFrame(S.raf); S.mode = null;
   closeCamera();
   const take = { id: Date.now(), at: new Date().toISOString(), duration, log: S.log.slice(), mime: S.mime, comp: out.comp || null, clean: out.clean || null };
   S.last = take;
-  let saved = false;
-  try { await db.put(take); saved = true; } catch (e) { console.error(e); }
+  // se guarda en la app (Mis videos) en paralelo
+  const stored = db.put(take).then(() => true, e => { console.error(e); return false; });
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
-  showDone(take, saved);
-  refreshCount();
+  showDone(take, true);
   busy = false;
+  // y se guarda solo en el teléfono, sin tocar nada más (lo antes posible, mientras vale el toque de "Terminar")
+  if ($('optAuto').checked) autoSave(take);
+  const ok = await stored;
+  if (!ok) { const st = $('doneStatus'); st.className = 'status'; st.textContent = 'No se pudo guardar en la app. Pasalo a la galería antes de salir.'; }
+  refreshCount();
+}
+const IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+async function autoSave(take) {
+  const st = $('doneStatus'), blob = take.comp; if (!blob) return;
+  const name = fileName(take, 'comp');
+  if (IOS) {
+    // Safari solo guarda en Fotos a través del menú de compartir
+    const file = new File([blob], name, { type: blob.type || 'video/mp4' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Bajo el Casco' });
+        st.className = 'status ok'; st.textContent = 'Video guardado. También quedó en Mis videos.';
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') { st.className = 'status'; st.textContent = 'No se guardó en Fotos. Quedó en Mis videos; podés pasarlo con «A la galería».'; return; }
+    }
+    st.className = 'status'; st.textContent = 'Tocá «A la galería» y elegí «Guardar video».';
+    return;
+  }
+  // Android y computadora: descarga automática
+  const u = URL.createObjectURL(blob); S.urls.push(u);
+  const a = document.createElement('a'); a.href = u; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  st.className = 'status ok'; st.textContent = 'Video guardado en Descargas. También quedó en Mis videos.';
 }
 
 /* ---------- guardado local (IndexedDB) ---------- */
@@ -420,7 +469,7 @@ function fail(e) {
 function readSettings() {
   S.W = $('optRes').value === '720' ? 720 : 1080; S.H = Math.round(S.W * 16 / 9);
   const cv = $('stage'); if (cv.width !== S.W) { cv.width = S.W; cv.height = S.H; }
-  store.set('opts2', { clean: $('optClean').checked, res: $('optRes').value, max: $('optMax').value });
+  store.set('opts2', { auto: $('optAuto').checked, clean: $('optClean').checked, res: $('optRes').value, max: $('optMax').value });
 }
 function loadSettings() {
   const o = store.get('opts2', null);
@@ -429,6 +478,7 @@ function loadSettings() {
     $('optClean').checked = !MOBILE;
     return;
   }
+  $('optAuto').checked = o.auto !== false;
   $('optClean').checked = !!o.clean; $('optRes').value = o.res || (MOBILE ? '720' : '1080'); $('optMax').value = o.max || '0';
 }
 
@@ -442,6 +492,8 @@ function init() {
   if (document.fonts) ['700', '800', 'italic 800', 'italic 900'].forEach(w => document.fonts.load(`${w} 40px BC`).catch(() => {}));
   $('startBtn').onclick = start;
   $('reaskBtn').onclick = reask;
+  $('recBtn').onclick = record;
+  $('cancelBtn').onclick = cancel;
   $('finishBtn').onclick = finish;
   $('exportBtn').onclick = () => S.last && exportTake(S.last, 'comp', $('doneStatus'));
   $('exportCleanBtn').onclick = () => S.last && exportTake(S.last, 'clean', $('doneStatus'));
@@ -451,10 +503,13 @@ function init() {
   $('libBack').onclick = () => show('welcome');
   $('msgBtn').onclick = () => show('welcome');
   $('settingsBtn').onclick = () => { const h = $('settings').hidden = !$('settings').hidden; $('settingsBtn').setAttribute('aria-expanded', String(!h)); };
-  ['optClean', 'optRes', 'optMax'].forEach(id => $(id).onchange = readSettings);
+  ['optAuto', 'optClean', 'optRes', 'optMax'].forEach(id => $(id).onchange = readSettings);
   $('resetBtn').onclick = () => { if (confirm('¿Reiniciar el mazo? Las 25 preguntas vuelven a estar disponibles.')) { store.set('used', []); updateRemaining(); } };
   // si la app pasa a segundo plano, se cierra y guarda lo grabado
-  document.addEventListener('visibilitychange', () => { if (document.hidden && S.recs.length) finish(); });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) return;
+    if (S.recs.length) finish(); else if (S.mode === 'ready') cancel();
+  });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 init();
