@@ -118,42 +118,60 @@ function wordmark(ctx, x, y, px, waveColor) {
 }
 function makeCanvas(W, H) { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; }
 
-// capa fija de cada pregunta (se dibuja una vez y se reutiliza en cada cuadro)
-function buildOverlay(q) {
-  const W = S.W, H = S.H, s = W / 1080, O = makeCanvas(W, H), b = O.getContext('2d');
-  let g = b.createLinearGradient(0, 0, 0, 340 * s);
-  g.addColorStop(0, 'rgba(6,6,6,0.55)'); g.addColorStop(1, 'rgba(6,6,6,0)');
-  b.fillStyle = g; b.fillRect(0, 0, W, 340 * s);
-  g = b.createLinearGradient(0, H * 0.44, 0, H);
-  g.addColorStop(0, 'rgba(6,6,6,0)'); g.addColorStop(0.42, 'rgba(6,6,6,0.74)'); g.addColorStop(1, 'rgba(6,6,6,0.96)');
-  b.fillStyle = g; b.fillRect(0, H * 0.44, W, H * 0.56);
-  if (S.logo) { const lw = 170 * s; b.drawImage(S.logo, 60 * s, 64 * s, lw, lw * S.logo.height / S.logo.width); }
-  const bx = 64 * s, footY = H - 120 * s;
-  const fb = fitText(b, q.q, W - bx * 2, 4, 86 * s, 54 * s, 700), lineH = fb.px * 1.08;
-  let qy = footY - 92 * s - (fb.lines.length - 1) * lineH;
-  const kicker = pad(q.n) + ' · ' + (q.n === TOTAL ? 'Pregunta especial' : q.cat);
-  b.font = `600 ${32 * s}px BC, sans-serif`; b.fillStyle = C.blue;
-  const ky = qy - fb.px - 30 * s;
-  b.fillRect(bx, ky - 11 * s, 44 * s, 3 * s);
-  spaced(b, kicker.toUpperCase(), bx + 62 * s, ky, 7 * s);
-  b.font = `700 ${fb.px}px BC, sans-serif`; b.fillStyle = '#ffffff';
-  fb.lines.forEach(l => { b.fillText(l, bx, qy); qy += lineH; });
-  b.fillStyle = C.line; b.fillRect(bx, footY - 46 * s, W - bx * 2, 2 * s);
-  wordmark(b, bx, footY + 4 * s, 38 * s, C.blue);
-  b.font = `500 ${27 * s}px BC, sans-serif`; b.fillStyle = C.mute;
-  spaced(b, 'RALLY ARGENTINO', W - bx, footY + 4 * s, 6 * s, 'right');
-  return O;
-}
-function drawTimer(ctx, t) {
-  const s = S.W / 1080, h = 64 * s, w = 210 * s, x = S.W - 60 * s - w, y = 70 * s;
-  ctx.fillStyle = 'rgba(6,6,6,0.6)';
+// capa fija de cada pregunta (look "Transmisión"): se dibuja una vez y se reutiliza en cada cuadro
+const NAVY = '#0b1f33', CEL = '#74acdf';
+const SK = Math.tan(12 * Math.PI / 180); // inclinación de los bloques (12°)
+function skewBox(ctx, x, y, w, h, fill) {
+  // paralelogramo inclinado hacia adelante, como skewX(-12deg) en CSS
+  const d = h * SK / 2;
   ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(x, y, w, h, h / 2); else ctx.rect(x, y, w, h);
-  ctx.fill();
-  ctx.fillStyle = (Math.floor(t * 2) % 2) ? 'rgba(255,77,79,0.35)' : '#ff4d4f';
-  ctx.beginPath(); ctx.arc(x + 36 * s, y + h / 2, 10 * s, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#ffffff'; ctx.font = `600 ${38 * s}px BC, sans-serif`;
-  spaced(ctx, fmt(t), x + 62 * s, y + h / 2 + 13 * s, 3 * s);
+  ctx.moveTo(x + d, y); ctx.lineTo(x + w + d, y); ctx.lineTo(x + w - d, y + h); ctx.lineTo(x - d, y + h);
+  ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+}
+function buildOverlay(q) {
+  const W = S.W, H = S.H, k = W / 405, O = makeCanvas(W, H), c = O.getContext('2d');
+  c.textBaseline = 'alphabetic';
+  // degradés para que logos y zócalo se lean sobre cualquier fondo
+  let g = c.createLinearGradient(0, 0, 0, 130 * k);
+  g.addColorStop(0, 'rgba(11,31,51,0.65)'); g.addColorStop(1, 'rgba(11,31,51,0)');
+  c.fillStyle = g; c.fillRect(0, 0, W, 130 * k);
+  g = c.createLinearGradient(0, H, 0, H - 260 * k);
+  g.addColorStop(0, 'rgba(11,31,51,0.75)'); g.addColorStop(1, 'rgba(11,31,51,0)');
+  c.fillStyle = g; c.fillRect(0, H - 260 * k, W, 260 * k);
+  // logo Rally Argentino (prioritario) arriba a la izquierda, logo de la app a la derecha
+  if (S.ra) {
+    const w = 170 * k, h = w * S.ra.height / S.ra.width;
+    c.save(); c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = 8 * k; c.shadowOffsetY = 2 * k;
+    c.drawImage(S.ra, 18 * k, 22 * k, w, h); c.restore();
+  }
+  if (S.logo) { const w = 56 * k; c.drawImage(S.logo, W - 18 * k - w, 20 * k, w, w * S.logo.height / S.logo.width); }
+
+  // zócalo, de abajo hacia arriba
+  const left = 18 * k, padX = 18 * k, padY = 13 * k;
+  const panelW = W - left - 22 * k - 6 * k;
+  const fb = fitText(c, q.q.toUpperCase(), panelW - padX * 2, 4, 30 * k, 20 * k, 'italic 900');
+  const lineH = fb.px * 1.02;
+  // fila inferior: barra celeste + firma
+  const footY = H - 34 * k;
+  skewBox(c, left + 10 * k, footY - 6 * k, 64 * k, 6 * k, CEL);
+  c.font = `italic 800 ${13 * k}px BC, sans-serif`; c.fillStyle = '#ffffff';
+  spaced(c, 'BAJO EL CASCO', left + 86 * k, footY + 1 * k, 1.8 * k);
+  // panel blanco con la pregunta
+  const panelH = padY * 2 + lineH * fb.lines.length;
+  const py = footY - 16 * k - panelH, px = left + 6 * k;
+  skewBox(c, px + 6 * k, py + 6 * k, panelW, panelH, 'rgba(11,31,51,0.6)');
+  skewBox(c, px, py, panelW, panelH, '#ffffff');
+  c.font = `italic 900 ${fb.px}px BC, sans-serif`; c.fillStyle = NAVY;
+  let ty = py + padY + fb.px * 0.86;
+  fb.lines.forEach(l => { c.fillText(l, px + padX, ty); ty += lineH; });
+  // pestaña celeste con número y capítulo
+  const kicker = (pad(q.n) + ' · ' + (q.n === TOTAL ? 'Pregunta especial' : q.cat)).toUpperCase();
+  c.font = `italic 800 ${14 * k}px BC, sans-serif`;
+  const sp = 2.2 * k, tw = [...kicker].reduce((a, ch) => a + c.measureText(ch).width + sp, 0);
+  const tabH = 28 * k;
+  skewBox(c, left, py - tabH, tw + 28 * k, tabH, CEL);
+  c.fillStyle = NAVY; spaced(c, kicker, left + 14 * k, py - 9 * k, sp);
+  return O;
 }
 function drawFrame() {
   const ctx = $('stage').getContext('2d'), W = S.W, H = S.H, v = S.video;
@@ -397,7 +415,8 @@ function init() {
   S.timerEl = $('timer');
   loadSettings(); updateRemaining(); refreshCount();
   const img = new Image(); img.onload = () => { S.logo = img; }; img.src = 'logo.png';
-  if (document.fonts) ['600', '700', '800'].forEach(w => document.fonts.load(`${w} 40px BC`).catch(() => {}));
+  const ra = new Image(); ra.onload = () => { S.ra = ra; }; ra.src = 'ra.png';
+  if (document.fonts) ['700', '800', 'italic 800', 'italic 900'].forEach(w => document.fonts.load(`${w} 40px BC`).catch(() => {}));
   $('startBtn').onclick = start;
   $('reaskBtn').onclick = reask;
   $('finishBtn').onclick = finish;

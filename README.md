@@ -1,4 +1,4 @@
-# Bajo el Casco — app de autoentrevistas
+# Bajo el Casco — app de autoentrevistas (look «Transmisión»)
 
 Webapp para celular: el piloto toca **Recibir una pregunta**, aparece una de las 25 preguntas y la cámara frontal empieza a grabar. El video se guarda con la pregunta y la gráfica sobreimpresas (1080×1920), y opcionalmente una versión limpia sin gráfica para edición.
 
